@@ -231,7 +231,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    const PDF_PATH = 'https://github.com/mazetezr/snake-battle-presentation/releases/download/v1.0/-.SNAKE.BATTLE.Crypto.PvP.Game.pdf';
+    const PDF_PATH = './presentation.pdf';
 
     const canvas      = document.getElementById('slide');
     const ctx         = canvas.getContext('2d');
@@ -309,39 +309,10 @@
       renderPage(current);
     }
 
-    /* ── load PDF via fetch (handles GitHub Release redirects) ── */
+    /* ── load PDF ── */
     async function loadPDF() {
-      const spinnerText = document.getElementById('spinnerText');
-      const loadBar     = document.getElementById('loadBar');
       try {
-        const res = await fetch(PDF_PATH);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const contentLength = res.headers.get('Content-Length');
-        const total_bytes   = contentLength ? parseInt(contentLength) : null;
-        const reader        = res.body.getReader();
-        const chunks        = [];
-        let   received      = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          received += value.length;
-          if (total_bytes) {
-            const pct = Math.round((received / total_bytes) * 100);
-            loadBar.style.width    = pct + '%';
-            spinnerText.textContent = `Loading… ${pct}%`;
-          } else {
-            spinnerText.textContent = `Loading… ${(received / 1048576).toFixed(1)} MB`;
-          }
-        }
-
-        const merged = new Uint8Array(received);
-        let   offset = 0;
-        for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
-
-        const doc = await pdfjsLib.getDocument({ data: merged }).promise;
+        const doc = await pdfjsLib.getDocument(PDF_PATH).promise;
         pdfDoc = doc;
         total  = doc.numPages;
         spinner.classList.remove('visible');
