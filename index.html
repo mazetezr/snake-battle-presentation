@@ -203,7 +203,10 @@
   <div class="stage" id="stage">
     <div class="spinner visible" id="spinner">
       <div class="spinner-ring"></div>
-      <p>Loading presentation…</p>
+      <p id="spinnerText">Loading presentation…</p>
+      <div style="width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:4px;overflow:hidden">
+        <div id="loadBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--neon-purple),var(--neon-blue));transition:width .3s;box-shadow:0 0 8px var(--neon-purple)"></div>
+      </div>
     </div>
 
     <canvas id="slide"></canvas>
@@ -306,17 +309,50 @@
       renderPage(current);
     }
 
-    /* ── load PDF ── */
-    pdfjsLib.getDocument(PDF_PATH).promise.then(async doc => {
-      pdfDoc = doc;
-      total  = doc.numPages;
-      spinner.classList.remove('visible');
-      canvas.style.display = 'block';
-      buildDots();
-      await renderPage(1);
-    }).catch(err => {
-      spinner.innerHTML = `<p style="color:var(--neon-pink)">⚠ Не удалось загрузить PDF<br><small>${err.message}</small></p>`;
-    });
+    /* ── load PDF via fetch (handles GitHub Release redirects) ── */
+    async function loadPDF() {
+      const spinnerText = document.getElementById('spinnerText');
+      const loadBar     = document.getElementById('loadBar');
+      try {
+        const res = await fetch(PDF_PATH);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const contentLength = res.headers.get('Content-Length');
+        const total_bytes   = contentLength ? parseInt(contentLength) : null;
+        const reader        = res.body.getReader();
+        const chunks        = [];
+        let   received      = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (total_bytes) {
+            const pct = Math.round((received / total_bytes) * 100);
+            loadBar.style.width    = pct + '%';
+            spinnerText.textContent = `Loading… ${pct}%`;
+          } else {
+            spinnerText.textContent = `Loading… ${(received / 1048576).toFixed(1)} MB`;
+          }
+        }
+
+        const merged = new Uint8Array(received);
+        let   offset = 0;
+        for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+
+        const doc = await pdfjsLib.getDocument({ data: merged }).promise;
+        pdfDoc = doc;
+        total  = doc.numPages;
+        spinner.classList.remove('visible');
+        canvas.style.display = 'block';
+        buildDots();
+        await renderPage(1);
+      } catch (err) {
+        spinner.innerHTML = `<p style="color:var(--neon-pink)">⚠ Не удалось загрузить PDF<br><small>${err.message}</small></p>`;
+      }
+    }
+    loadPDF();
 
     /* ── events ── */
     prevBtn.addEventListener('click', () => goTo(current - 1));
