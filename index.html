@@ -336,11 +336,8 @@
           const page = await pdfDoc.getPage(n);
           const img  = await renderToImage(page);
           cache.set(n, img);
-          loadBar.style.width = ((cache.size / total) * 100) + '%';
-          spinnerText.textContent = `Pre-rendering slides… ${cache.size}/${total}`;
         } catch (_) { /* skip failed page */ }
       }
-      spinner.classList.remove('visible');
     }
 
     /* ── render current page (from cache or fresh) ── */
@@ -392,8 +389,7 @@
 
         /* render first slide immediately */
         await renderPage(1);
-        spinner.style.pointerEvents = 'none';
-        spinner.style.opacity = '0.5';
+        spinner.classList.remove('visible');
 
         /* pre-render the rest in background */
         prerenderAll();
